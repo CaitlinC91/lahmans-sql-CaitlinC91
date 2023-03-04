@@ -74,7 +74,7 @@ ORDER BY decade
 
 -- 6. Find the player who had the most success stealing bases in 2016, where __success__ is measured as the percentage of stolen base attempts which are successful. (A stolen base attempt results either in a stolen base or being caught stealing.) Consider only players who attempted _at least_ 20 stolen bases.
 
-SELECT namefirst, namelast, ((sb :: FLOAT / (sb :: FLOAT + cs :: FLOAT)) * 100) as perc_stolen_base_attempts
+SELECT namefirst, namelast, ROUND(((sb :: numeric / (sb :: numeric + cs :: numeric)) * 100),0) AS perc_stolen_base_attempts
 FROM batting
 LEFT JOIN people
 USING (playerid)
@@ -87,37 +87,124 @@ ORDER BY perc_stolen_base_attempts DESC
 
 -- 7.  From 1970 – 2016, what is the largest number of wins for a team that did not win the world series? What is the smallest number of wins for a team that did win the world series? Doing this will probably result in an unusually small number of wins for a world series champion – determine why this is the case. Then redo your query, excluding the problem year. How often from 1970 – 2016 was it the case that a team with the most wins also won the world series? What percentage of the time?
 
-SELECT MAX(w)
+-- SELECT MAX(w)
+-- FROM teams
+-- WHERE yearid BETWEEN 1970 AND 2016
+-- 	AND wswin = 'N'
+-- -- 116 wins, loss ws
+
+-- SELECT MIN(W)
+-- FROM Teams
+-- WHERE yearid BETWEEN 1970 AND 2016
+-- 	AND wswin = 'Y'
+-- -- 63
+
+-- SELECT MIN(W)
+-- FROM Teams
+-- WHERE yearid BETWEEN 1970 AND 2016
+-- 	AND yearid <> 1981
+-- 	AND wswin = 'Y'
+-- --83
+
+
+-- SELECT *
+-- FROM Teams
+-- WHERE yearid BETWEEN 1970 AND 2016
+-- 		AND wswin = 'Y'
+-- ORDER BY g
+-- --problem year 1981, not as many games played
+
+-- TRYING to create a case when to evalute % wins by teams with most wins
+
+WITH cte AS(SELECT COUNT(wswin) as count
+			FROM teams
+			WHERE yearid BETWEEN 1970 AND 2016
+			AND wswin = 'Y'
+		  )
+		   
+SELECT wswin, (
+	(
+  SELECT teamid, MAX(W) AS max_wins
+  FROM teams
+  WHERE yearID BETWEEN 1970 AND 2016 AND WSWin='Y'
+  GROUP BY teamid
+ )/(SELECT COUNT(wswin) as count
+			FROM teams
+			WHERE yearid BETWEEN 1970 AND 2016
+			AND wswin = 'Y'
+		  ) )* 100
 FROM teams
-WHERE yearid BETWEEN 1970 AND 2016
-	AND wswin = 'N'
--- 116 wins, loss ws
+WHERE wswin = 'Y'
 
-SELECT MIN(W)
-FROM Teams
-WHERE yearid BETWEEN 1970 AND 2016
-	AND wswin = 'Y'
--- 63
 
-SELECT *
-FROM Teams
-WHERE yearid BETWEEN 1970 AND 2016
-		AND wswin = 'Y'
-ORDER BY g
---problem year 1981, not as many games played
 
 SELECT yearid,
-	AVG(CASE WHEN w = MAX(w) AND wswin = 'Y' THEN 1
-	   WHEN w= MAX(w) AND wswin = 'N' THEN 0
+	AVG(CASE WHEN w = cte.max AND wswin = 'Y' THEN 1
+	   WHEN w = cte.max AND wswin = 'N' THEN 0
 	   END) AS pct_wins
 FROM teams
+INNER JOIN cte
+USING(yearid)
 WHERE yearid BETWEEN 1970 AND 2016
 		AND yearid <> 1981
 GROUP BY yearid
 ORDER BY yearid
 
+--this gives me a table of all max wins per year. I need to know when they also = Y in wswin and then, calculate %
+SELECT COUNT(maxwins_wswinner) /
+FROM
+(SELECT teamid, MAX(w)
+FROM teams
+WHERE yearid BETWEEN 1970 AND 2016
+AND wswin = 'Y'
+GROUP BY teamid) AS maxwins_wswinner
+
+
+SELECT MAX(w), yearid
+FROM teams
+WHERE MAX(w) IN
+		(SELECT wswin
+			   FROM teams
+			   WHERE wswin = 'Y'
+			)
+			AND yearid BETWEEN 1970 AND 2016
+GROUP BY yearid
+
+
+
+SELECT
+	teamid,
+	MAX(w), 
+	MAX(MAX(w)) OVER(PARTITION BY yearid) AS max_window
+FROM teams
+WHERE wswin='Y' 
+AND yearid BETWEEN '1970' AND '2016'
+GROUP BY yearid, name, w
+ORDER BY yearid;
+
+SELECT teamid, yearid, wswin, w
+FROM teams
+WHERE yearid BETWEEN '1970' AND '2016'
+ORDER BY teamid
+
+
+WITH champ_wins AS (
+  SELECT teamid, MAX(W) AS max_wins
+  FROM teams
+  WHERE yearID BETWEEN 1970 AND 2016 AND WSWin='Y'
+  GROUP BY teamid)
+	
+SELECT teamid, MAX(W) AS max_wins
+  FROM teams
+  WHERE yearID BETWEEN 1970 AND 2016 AND WSWin='Y'
+  GROUP BY teamid
+  ORDER BY teamid
+
 -- 8. Using the attendance figures from the homegames table, find the teams and parks which had the top 5 average attendance per game in 2016 (where average attendance is defined as total attendance divided by number of games). Only consider parks where there were at least 10 games played. Report the park name, team name, and average attendance. Repeat for the lowest 5 average attendance.
 
+SELECT *
+FROM homegames
+WHERE year = '2016'
 
 -- 9. Which managers have won the TSN Manager of the Year award in both the National League (NL) and the American League (AL)? Give their full name and the teams that they were managing when they won the award.
 
