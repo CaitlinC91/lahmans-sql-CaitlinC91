@@ -122,19 +122,22 @@ WITH cte AS(SELECT COUNT(wswin) as count
 			AND wswin = 'Y'
 		  )
 		   
-SELECT wswin, (
-	(
-  SELECT teamid, MAX(W) AS max_wins
+
+WITH cte AS (SELECT teamid, MAX(W) AS max_wins
   FROM teams
   WHERE yearID BETWEEN 1970 AND 2016 AND WSWin='Y'
-  GROUP BY teamid
- )/(SELECT COUNT(wswin) as count
+  GROUP BY teamid)
+
+SELECT COUNT(cte.*)
+ /(SELECT COUNT(wswin) as count
 			FROM teams
 			WHERE yearid BETWEEN 1970 AND 2016
 			AND wswin = 'Y'
-		  ) )* 100
+		  )* 100 AS perc
 FROM teams
-WHERE wswin = 'Y'
+INNER JOIN cte
+USING(teamid)
+
 
 
 
@@ -202,11 +205,37 @@ SELECT teamid, MAX(W) AS max_wins
 
 -- 8. Using the attendance figures from the homegames table, find the teams and parks which had the top 5 average attendance per game in 2016 (where average attendance is defined as total attendance divided by number of games). Only consider parks where there were at least 10 games played. Report the park name, team name, and average attendance. Repeat for the lowest 5 average attendance.
 
-SELECT *
+SELECT park, team, SUM(attendance)/ SUM(games) AS avg_attendance
 FROM homegames
 WHERE year = '2016'
+	AND games > 10
+GROUP BY park, team
+ORDER BY avg_attendance DESC
+LIMIT 5
+
+-- "LOS03"	"LAN"	45719
+-- "STL10"	"SLN"	42524
+-- "TOR02"	"TOR"	41877
+-- "SFO03"	"SFN"	41546
+-- "CHI11"	"CHN"	39906
+
+SELECT park, team, SUM(attendance)/ SUM(games) AS avg_attendance
+FROM homegames
+WHERE year = '2016'
+	AND games > 10
+GROUP BY park, team
+ORDER BY avg_attendance
+LIMIT 5
+
+-- "STP01"	"TBA"	15878
+-- "OAK01"	"OAK"	18784
+-- "CLE08"	"CLE"	19650
+-- "MIA02"	"MIA"	21405
+-- "CHI12"	"CHA"	21559
 
 -- 9. Which managers have won the TSN Manager of the Year award in both the National League (NL) and the American League (AL)? Give their full name and the teams that they were managing when they won the award.
+
+
 
 -- 10. Find all players who hit their career highest number of home runs in 2016. Consider only players who have played in the league for at least 10 years, and who hit at least one home run in 2016. Report the players' first and last names and the number of home runs they hit in 2016.
 
