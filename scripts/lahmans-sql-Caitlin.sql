@@ -116,7 +116,7 @@ ORDER BY perc_stolen_base_attempts DESC
 
 -- TRYING to create a case when to evalute % wins by teams with most wins
 
-WITH cte AS(SELECT COUNT(wswin) as count
+WITH cte AS(SELECT COUNT(wswin) as wswins
 			FROM teams
 			WHERE yearid BETWEEN 1970 AND 2016
 			AND wswin = 'Y'
@@ -128,17 +128,18 @@ WITH cte AS (SELECT teamid, MAX(W) AS max_wins
   WHERE yearID BETWEEN 1970 AND 2016 AND WSWin='Y'
   GROUP BY teamid)
 
-SELECT COUNT(cte.*)
- /(SELECT COUNT(wswin) as count
+SELECT COUNT(max_wins)
+	/(SELECT COUNT(wswin) as count
 			FROM teams
 			WHERE yearid BETWEEN 1970 AND 2016
 			AND wswin = 'Y'
-		  )* 100 AS perc
+		  ) AS perc
 FROM teams
 INNER JOIN cte
 USING(teamid)
+GROUP BY cte.teamid
 
-
+ 
 
 
 SELECT yearid,
@@ -202,16 +203,40 @@ SELECT teamid, MAX(W) AS max_wins
   WHERE yearID BETWEEN 1970 AND 2016 AND WSWin='Y'
   GROUP BY teamid
   ORDER BY teamid
+  
+  
+WITH max_wins AS (
+  SELECT MAX(w) AS max_wins, yearid
+  FROM teams
+  WHERE yearid BETWEEN 1970 AND 2016
+  GROUP BY yearid
+)--create a CTE to show the team with the max wins--this runs first
+SELECT
+  COUNT(*) AS num_champs, --calculates the number of championship wins for the team with the most wins by using a row count
+  COUNT(*) * 100.0 / (SELECT COUNT(DISTINCT yearid) FROM teams WHERE yearid BETWEEN 1970 AND 2016) AS percentage---calculate the percentage of championship wins for the teams with the most wins and then divdes the # of championship wins by the total number of years--this runs last
+FROM (
+  SELECT teams.teamid, teams.yearid
+  FROM teams
+  INNER JOIN max_wins
+  ON teams.yearid = max_wins.yearid AND teams.w = max_wins.max_wins
+  WHERE teams.wswin = 'Y'
+) AS champ_wins;
+--this runs second and creates a wins the worldseries section----  
+
 
 -- 8. Using the attendance figures from the homegames table, find the teams and parks which had the top 5 average attendance per game in 2016 (where average attendance is defined as total attendance divided by number of games). Only consider parks where there were at least 10 games played. Report the park name, team name, and average attendance. Repeat for the lowest 5 average attendance.
 
-SELECT park, team, SUM(attendance)/ SUM(games) AS avg_attendance
-FROM homegames
+--Need to add names for team.
+SELECT park_name, team, SUM(attendance)/ SUM(games) AS avg_attendance
+FROM homegames AS h
+LEFT JOIN parks AS p
+USING (park)
 WHERE year = '2016'
 	AND games > 10
-GROUP BY park, team
+GROUP BY park_name, team
 ORDER BY avg_attendance DESC
 LIMIT 5
+
 
 -- "LOS03"	"LAN"	45719
 -- "STL10"	"SLN"	42524
@@ -219,11 +244,13 @@ LIMIT 5
 -- "SFO03"	"SFN"	41546
 -- "CHI11"	"CHN"	39906
 
-SELECT park, team, SUM(attendance)/ SUM(games) AS avg_attendance
-FROM homegames
+SELECT park_name, team, SUM(attendance)/ SUM(games) AS avg_attendance
+FROM homegames AS h
+LEFT JOIN parks AS p
+USING (park)
 WHERE year = '2016'
 	AND games > 10
-GROUP BY park, team
+GROUP BY park_name, team
 ORDER BY avg_attendance
 LIMIT 5
 
@@ -234,6 +261,70 @@ LIMIT 5
 -- "CHI12"	"CHA"	21559
 
 -- 9. Which managers have won the TSN Manager of the Year award in both the National League (NL) and the American League (AL)? Give their full name and the teams that they were managing when they won the award.
+
+
+
+
+
+
+--QUERY RETURNS correct playerids
+SELECT a.playerid, COUNT(DISTINCT a.lgid), b.yearid
+FROM awardsmanagers AS a
+LEFT JOIN awardsmanagers as b
+USING (playerid)
+WHERE a.awardid = 'TSN Manager of the Year'
+	AND a.lgid <> 'ML'
+GROUP BY a.playerid, b.yearid
+HAVING COUNT(DISTINCT a.lgid) >=2
+
+--QUERY RETURNS CORRECT NAMES
+
+
+
+SELECT p.namefirst, p.namelast , m.teamid
+FROM 
+	(SELECT playerid, COUNT(DISTINCT lgid)
+		FROM awardsmanagers AS a
+		WHERE awardid = 'TSN Manager of the Year'
+		AND lgid <> 'ML'
+		GROUP BY playerid
+		HAVING COUNT(DISTINCT lgid) >=2) AS manager
+LEFT JOIN people as p
+USING(playerid)
+LEFT JOIN managers as m
+USING(playerid)
+
+
+
+
+SELECT yearid, teamid ,playerid
+FROM managers
+WHERE yearid BETWEEN 1997 AND 2012
+AND playerid = 'johnsda02'
+
+SELECT *
+FROM awardsmanagers
+WHERE playerid = 'johnsda02'
+
+
+
+
+SELECT p.namefirst, p.namelast , manager.yearid --, t.name
+FROM 
+	(SELECT a.playerid, COUNT(DISTINCT a.lgid), b.yearid
+		FROM awardsmanagers AS a
+		LEFT JOIN awardsmanagers as b
+		USING (playerid)
+		WHERE a.awardid = 'TSN Manager of the Year'
+			AND a.lgid <> 'ML'
+		GROUP BY a.playerid, b.yearid
+		HAVING COUNT(DISTINCT a.lgid)>=2) AS manager
+LEFT JOIN people as p
+USING(playerid)
+--LEFT JOIN teams as t
+--ON manager.yearid = t.yearid AND awardsmanagers.lgid = t.lgid
+
+
 
 
 
