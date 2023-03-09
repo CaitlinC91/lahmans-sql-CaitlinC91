@@ -21,7 +21,7 @@ FROM Batting;
  --FROM teams
  --WHERE teamid = 'SLA';
 
-SELECT p.namefirst, p.namelast, p.height, a.g_all AS games_played, t.name AS team_name
+SELECT CONCAT(p.namefirst,' ', p.namelast) AS name, p.height, a.g_all AS games_played, t.name AS team_name
 FROM people AS p
 LEFT JOIN appearances AS a
 USING(playerid)
@@ -30,6 +30,7 @@ ON a.teamid = t.teamid
 ORDER BY p.height ASC
 LIMIT 1;
 
+--"Eddie Gaedel",	43,	1,	"St. Louis Browns"
 
 -- 3. Find all players in the database who played at Vanderbilt University. Create a list showing each player’s first and last names as well as the total salary they earned in the major leagues. Sort this list in descending order by the total salary earned. Which Vanderbilt player earned the most money in the majors?
 
@@ -262,13 +263,19 @@ LIMIT 5
 
 -- 9. Which managers have won the TSN Manager of the Year award in both the National League (NL) and the American League (AL)? Give their full name and the teams that they were managing when they won the award.
 
-
-
+SELECT DISTINCT b.yearid, a.playerid
+FROM awardsmanagers AS a
+LEFT JOIN awardsmanagers as b
+USING (playerid)
+WHERE a.awardid = 'TSN Manager of the Year'
+	AND a.lgid <> 'ML'
+GROUP BY a.playerid, b.yearid
+HAVING COUNT(DISTINCT a.lgid) >=2  
 
 
 
 --QUERY RETURNS correct playerids
-SELECT a.playerid, COUNT(DISTINCT a.lgid), b.yearid
+SELECT DISTINCT b.yearid, a.playerid, COUNT(DISTINCT a.lgid)
 FROM awardsmanagers AS a
 LEFT JOIN awardsmanagers as b
 USING (playerid)
@@ -307,9 +314,9 @@ FROM awardsmanagers
 WHERE playerid = 'johnsda02'
 
 
+-- RETURNS NAMES, YEARS, NEED TO ADD TEAMS
 
-
-SELECT p.namefirst, p.namelast , manager.yearid --, t.name
+SELECT DISTINCT manager.yearid, p.namefirst, p.namelast , t.name
 FROM 
 	(SELECT a.playerid, COUNT(DISTINCT a.lgid), b.yearid
 		FROM awardsmanagers AS a
@@ -321,8 +328,8 @@ FROM
 		HAVING COUNT(DISTINCT a.lgid)>=2) AS manager
 LEFT JOIN people as p
 USING(playerid)
---LEFT JOIN teams as t
---ON manager.yearid = t.yearid AND awardsmanagers.lgid = t.lgid
+LEFT JOIN teams as t
+ON manager.yearid = t.yearid
 
 
 
@@ -331,9 +338,70 @@ USING(playerid)
 -- 10. Find all players who hit their career highest number of home runs in 2016. Consider only players who have played in the league for at least 10 years, and who hit at least one home run in 2016. Report the players' first and last names and the number of home runs they hit in 2016.
 
 
+
+SELECT 
+  playerID, 
+  MAX(HR) AS career_high_hr,
+  CONCAT(p.namelast,',', p.namefirst) AS name
+FROM 
+  Batting AS b
+LEFT JOIN people AS p
+USING(playerid)
+WHERE playerid IN
+	(SELECT 
+		playerid
+	 FROM batting
+	WHERE yearid = '2016')
+GROUP BY 
+  playerID, name
+HAVING 
+  COUNT(DISTINCT yearID) >= 10
+  AND MAX(hr) >=1
+ORDER BY playerid
+
+
+
+
+(SELECT 
+	yearid,
+	 playerid,
+	 hr
+FROM batting
+WHERE yearid = '2016')
+
+
+
+		
+
+
+
+
 -- **Open-ended questions**
 
 -- 11. Is there any correlation between number of wins and team salary? Use data from 2000 and later to answer this question. As you do this analysis, keep in mind that salaries across the whole league tend to increase together, so you may want to look on a year-by-year basis.
+
+--cte lag info for salary to calculate % change 
+WITH yearly_salary_lag AS (SELECT yearid, teamid, SUM(salary) AS team_salary,
+	LAG(SUM(salary)) OVER (PARTITION BY teamid ORDER BY yearid) AS previous_year_salary
+FROM salaries
+WHERE yearid >= 2000
+GROUP BY yearid, teamid
+),
+ -- cte lag info for win to cal % change
+ yearly_wins_lag AS (
+	SELECT yearid, teamid, w,
+	LAG(w) OVER (PARTITION BY teamid ORDER BY yearid) AS previous_yr_wins
+	FROM teams
+	WHERE yearid >= 2000
+)
+
+--query calculating % change
+SELECT *,
+	 COALESCE(ROUND((team_salary - previous_year_salary) /previous_year_salary * 100),0) AS perc_change_salary,
+	 COALESCE(ROUND(((w :: FLOAT) -previous_yr_wins)/ previous_yr_wins * 100),0) AS perc_change_wins
+FROM yearly_salary_lag
+LEFT JOIN yearly_wins_lag
+USING(yearid, teamid) 
 
 -- 12. In this question, you will explore the connection between number of wins and attendance.
 --     <ol type="a">
