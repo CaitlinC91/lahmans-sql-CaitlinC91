@@ -21,16 +21,19 @@ FROM Batting;
  --FROM teams
  --WHERE teamid = 'SLA';
 
-SELECT CONCAT(p.namefirst,' ', p.namelast) AS name, p.height, a.g_all AS games_played, t.name AS team_name
+SELECT CONCAT(p.namefirst,' ', p.namelast) AS name, 
+	p.height, 
+	a.g_all AS games_played,
+	t.name AS team_name
 FROM people AS p
-LEFT JOIN appearances AS a
-USING(playerid)
-INNER JOIN teams AS t
-ON a.teamid = t.teamid
+	LEFT JOIN appearances AS a
+	USING(playerid)
+	INNER JOIN teams AS t
+	ON a.teamid = t.teamid
 ORDER BY p.height ASC
 LIMIT 1;
 
---"Eddie Gaedel",	43,	1,	"St. Louis Browns"
+--name -"Eddie Gaedel",	hieght - 43, games played - 1,	team - "St. Louis Browns"
 
 -- 3. Find all players in the database who played at Vanderbilt University. Create a list showing each player’s first and last names as well as the total salary they earned in the major leagues. Sort this list in descending order by the total salary earned. Which Vanderbilt player earned the most money in the majors?
 
@@ -52,7 +55,7 @@ ORDER BY total_salary DESC;
 
 -- 4. Using the fielding table, group players into three groups based on their position: label players with position OF as "Outfield", those with position "SS", "1B", "2B", and "3B" as "Infield", and those with position "P" or "C" as "Battery". Determine the number of putouts made by each of these three groups in 2016.
 
-SELECT COUNT(*),
+SELECT COUNT(*), -- should ahve sum instead!?!?!
 CASE WHEN pos = 'OF' THEN 'Outfield'
 	WHEN pos = 'P' THEN 'Battery'
 	WHEN pos = 'C' THEN 'Battery'
@@ -61,10 +64,13 @@ FROM fielding
 WHERE yearid = '2016'
 GROUP BY position
 
-   
+SELECT *
+FROM fielding
+
 -- 5. Find the average number of strikeouts per game by decade since 1920. Round the numbers you report to 2 decimal places. Do the same for home runs per game. Do you see any trends?
 
-SELECT 10*FLOOR(yearid/10) AS decade, ROUND(AVG(SO),2)AS avg_strikeouts, ROUND(AVG(hr),2) AS avg_homeruns
+--NEED TO AVG BY game and order by decade! sum of so / (sum of games/2)
+SELECT 10*FLOOR(yearid/10) AS decade, ROUND(AVG(so),2)AS avg_strikeouts, ROUND(AVG(hr),2) AS avg_homeruns
 FROM teams
 WHERE yearid >= 1920
 GROUP BY 10*FLOOR(yearid/10)
@@ -74,6 +80,8 @@ ORDER BY decade
 
 
 -- 6. Find the player who had the most success stealing bases in 2016, where __success__ is measured as the percentage of stolen base attempts which are successful. (A stolen base attempt results either in a stolen base or being caught stealing.) Consider only players who attempted _at least_ 20 stolen bases.
+
+--may need sum?
 
 SELECT namefirst, namelast, ROUND(((sb :: numeric / (sb :: numeric + cs :: numeric)) * 100),0) AS perc_stolen_base_attempts
 FROM batting
@@ -85,27 +93,29 @@ ORDER BY perc_stolen_base_attempts DESC
 
 -- "Chris"	"Owings"	91%
 
+SELECT *
+FROM batting
 
 -- 7.  From 1970 – 2016, what is the largest number of wins for a team that did not win the world series? What is the smallest number of wins for a team that did win the world series? Doing this will probably result in an unusually small number of wins for a world series champion – determine why this is the case. Then redo your query, excluding the problem year. How often from 1970 – 2016 was it the case that a team with the most wins also won the world series? What percentage of the time?
 
--- SELECT MAX(w)
--- FROM teams
--- WHERE yearid BETWEEN 1970 AND 2016
--- 	AND wswin = 'N'
--- -- 116 wins, loss ws
+ SELECT MAX(w)
+ FROM teams
+ WHERE yearid BETWEEN 1970 AND 2016
+ 	AND wswin = 'N'
+-- 116 wins, loss ws
 
--- SELECT MIN(W)
--- FROM Teams
--- WHERE yearid BETWEEN 1970 AND 2016
--- 	AND wswin = 'Y'
--- -- 63
+SELECT MIN(W)
+ FROM Teams
+ WHERE yearid BETWEEN 1970 AND 2016
+ 	AND wswin = 'Y'
+ -- 63
 
--- SELECT MIN(W)
--- FROM Teams
--- WHERE yearid BETWEEN 1970 AND 2016
--- 	AND yearid <> 1981
--- 	AND wswin = 'Y'
--- --83
+ SELECT MIN(W)
+ FROM Teams
+ WHERE yearid BETWEEN 1970 AND 2016
+ 	AND yearid <> 1981
+ 	AND wswin = 'Y'
+ --83 and won
 
 
 -- SELECT *
@@ -205,7 +215,8 @@ SELECT teamid, MAX(W) AS max_wins
   GROUP BY teamid
   ORDER BY teamid
   
-  
+-- below query returns correct numbers!**************************************************************
+
 WITH max_wins AS (
   SELECT MAX(w) AS max_wins, yearid
   FROM teams
@@ -224,11 +235,13 @@ FROM (
 ) AS champ_wins;
 --this runs second and creates a wins the worldseries section----  
 
+--Walk through. cte pulling name, win, year ,and wswin from teams.
+
 
 -- 8. Using the attendance figures from the homegames table, find the teams and parks which had the top 5 average attendance per game in 2016 (where average attendance is defined as total attendance divided by number of games). Only consider parks where there were at least 10 games played. Report the park name, team name, and average attendance. Repeat for the lowest 5 average attendance.
 
 --Need to add names for team.
-SELECT park_name, team, SUM(attendance)/ SUM(games) AS avg_attendance
+SELECT park_name, team, SUM(attendance)/ SUM(games) AS avg_attendance, 'Top five' AS attendance
 FROM homegames AS h
 LEFT JOIN parks AS p
 USING (park)
@@ -245,7 +258,7 @@ LIMIT 5
 -- "SFO03"	"SFN"	41546
 -- "CHI11"	"CHN"	39906
 
-SELECT park_name, team, SUM(attendance)/ SUM(games) AS avg_attendance
+SELECT park_name, team, SUM(attendance)/ SUM(games) AS avg_attendance, 'Lowest five' AS attendance
 FROM homegames AS h
 LEFT JOIN parks AS p
 USING (park)
@@ -395,7 +408,7 @@ GROUP BY yearid, teamid
 	WHERE yearid >= 2000
 )
 
---query calculating % change
+--query calculating % change, per year per team. May need to query an avg change over time to be able to compare.
 SELECT *,
 	 COALESCE(ROUND((team_salary - previous_year_salary) /previous_year_salary * 100),0) AS perc_change_salary,
 	 COALESCE(ROUND(((w :: FLOAT) -previous_yr_wins)/ previous_yr_wins * 100),0) AS perc_change_wins
